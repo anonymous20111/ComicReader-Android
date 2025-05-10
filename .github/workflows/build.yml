@@ -3,8 +3,6 @@ name: Build APK
 on:
   push:
     branches: [ "main" ]
-  pull_request:
-    branches: [ "main" ]
 
 jobs:
   build:
@@ -13,31 +11,45 @@ jobs:
     steps:
     - uses: actions/checkout@v4
 
+    - name: Add swap space
+      run: |
+        sudo fallocate -l 4G /swapfile
+        sudo chmod 600 /swapfile
+        sudo mkswap /swapfile
+        sudo swapon /swapfile
+
     - name: Set up Python
       uses: actions/setup-python@v4
       with:
         python-version: "3.10"
+        cache: 'pip'
 
-    - name: Install dependencies
+    - name: Install system dependencies
       run: |
         sudo apt-get update
         sudo apt-get install -y \
           git zip unzip openjdk-17-jdk \
           python3-pip autoconf libtool \
-          pkg-config zlib1g-dev \
-          libncurses5-dev libncursesw5-dev \
-          libtinfo5 cmake
+          pkg-config zlib1g-dev libncurses5-dev \
+          libncursesw5-dev libtinfo5 cmake \
+          libffi-dev libssl-dev
 
     - name: Install Buildozer
       run: |
-        pip install buildozer cython==0.29.33
+        pip install --upgrade pip wheel
+        pip install --no-cache-dir buildozer cython==0.29.33
 
     - name: Build APK
+      timeout-minutes: 30  # 设置超时时间
       run: |
+        buildozer android clean
         buildozer -v android debug
-        cp bin/*.apk .
 
     - name: Upload APK
+      uses: actions/upload-artifact@v4
+      with:
+        name: app-apk
+        path: bin/*.apk
       uses: actions/upload-artifact@v4  # 关键修改点
       with:
         name: comic-reader-apk
