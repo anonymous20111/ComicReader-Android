@@ -7,20 +7,21 @@ on:
     branches: [ main ]
 
 env:
-  DEBIAN_FRONTEND: noninteractive  # 避免安装过程中的交互提示
+  DEBIAN_FRONTEND: noninteractive
+  BUILDODER_DIR: /home/runner/work/${{ github.repository }}/${{ github.repository }}
 
 jobs:
   build:
     runs-on: ubuntu-latest
-    timeout-minutes: 40
+    timeout-minutes: 45
 
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
 
-    - name: Set up swap space (4GB)
+    - name: Set up swap space (6GB)
       run: |
-        sudo fallocate -l 4G /swapfile
+        sudo fallocate -l 6G /swapfile
         sudo chmod 600 /swapfile
         sudo mkswap /swapfile
         sudo swapon /swapfile
@@ -28,14 +29,12 @@ jobs:
 
     - name: Configure system
       run: |
-        # 启用所有Ubuntu仓库并更新
         sudo add-apt-repository -y universe
         sudo add-apt-repository -y multiverse
         sudo apt-get update -qq
 
     - name: Install system dependencies
       run: |
-        # 基础构建工具
         sudo apt-get install -y --no-install-recommends \
           software-properties-common \
           build-essential \
@@ -44,13 +43,8 @@ jobs:
           python3-pip python3-dev \
           autoconf libtool pkg-config \
           zlib1g-dev libncurses-dev \
-          cmake libffi-dev libssl-dev
-
-        # 处理libtinfo兼容性问题
-        sudo apt-get install -y libtinfo6 || \
-        (echo "Installing libtinfo5 alternative..." && \
-         wget http://archive.ubuntu.com/ubuntu/pool/main/n/ncurses/libtinfo5_6.2-0ubuntu2_amd64.deb && \
-         sudo dpkg -i libtinfo5_6.2-0ubuntu2_amd64.deb || true)
+          cmake libffi-dev libssl-dev \
+          libtinfo6
 
     - name: Set up Python 3.10
       uses: actions/setup-python@v4
@@ -58,23 +52,35 @@ jobs:
         python-version: "3.10"
         cache: 'pip'
 
-    - name: Install Python dependencies
+    - name: Install Buildozer
       run: |
         python -m pip install --upgrade pip wheel
         pip install --no-cache-dir \
-          buildozer \
-          cython==0.29.33 \
-          virtualenv
+          buildozer==1.5.0 \
+          cython==0.29.33
 
-    - name: Build APK
+    - name: Prepare build environment
       run: |
-        buildozer android clean
-        buildozer -v android debug
+        mkdir -p $BUILDODER_DIR/.buildozer/android/platform
+        echo "buildozer_dir = $BUILDODER_DIR/.buildozer" >> buildozer.spec
+
+    - name: Build APK (with retry)
+      run: |
+        buildozer android clean || true
+        for i in {1..3}; do
+          buildozer -v android debug && break
+          echo "Build attempt $i failed, retrying..."
+          sleep 10
+        done
+
+    - name: Verify APK
+      run: |
+        file bin/*.apk
         ls -lh bin/
 
     - name: Upload APK
       uses: actions/upload-artifact@v4
       with:
-        name: app-debug
+        name: comic-reader-apk
         path: bin/*.apk
-        retention-days: 5
+        retention-days: 7
