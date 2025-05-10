@@ -14,13 +14,12 @@ source.main = main.py
 source.include_exts = py,png,jpg,jpeg,webp,gif,kv,json,ttf
 
 # 需求配置
-requirements = 
-    python3==3.11.5,
+requirements =
+    python3==3.10,
     kivy==2.3.0,
     pillow==10.1.0,
     pyjnius==1.5.0,
-    android==0.5,
-    openssl
+    android
 
 # 图标和启动画面
 icon.filename = assets/icon.png
@@ -32,7 +31,7 @@ android.permissions =
     WRITE_EXTERNAL_STORAGE,
     INTERNET
 
-android.api = 33
+android.api = 34
 android.minapi = 21
 android.ndk = 25b
 android.sdk = 34
@@ -68,6 +67,4 @@ android.exclude_exts = .git,.md,.bat,.sh
 # android.release_keyalias = myalias
 
 [buildozer]
-# 构建控制
 log_level = 2
-warn_on_root = 1
