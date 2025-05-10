@@ -9,7 +9,7 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
-    timeout-minutes: 40  # 增加超时时间
+    timeout-minutes: 40
 
     steps:
     - name: Checkout code
@@ -31,6 +31,9 @@ jobs:
 
     - name: Install system dependencies
       run: |
+        sudo apt-get update -qq
+        sudo apt-get install -y software-properties-common
+        sudo add-apt-repository universe
         sudo apt-get update -qq
         sudo apt-get install -y \
           git zip unzip openjdk-17-jdk \
@@ -54,7 +57,7 @@ jobs:
         buildozer -v android debug
         echo "=== Build complete ==="
         
-        # 检查生成的APK
+        # Check generated APK
         ls -lh bin/
         file bin/*.apk
 
