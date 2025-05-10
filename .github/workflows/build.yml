@@ -6,6 +6,9 @@ on:
   pull_request:
     branches: [ main ]
 
+env:
+  DEBIAN_FRONTEND: noninteractive  # 避免安装过程中的交互提示
+
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -23,26 +26,39 @@ jobs:
         sudo swapon /swapfile
         free -h
 
+    - name: Configure system
+      run: |
+        # 启用所有Ubuntu仓库并更新
+        sudo add-apt-repository -y universe
+        sudo add-apt-repository -y multiverse
+        sudo apt-get update -qq
+
+    - name: Install system dependencies
+      run: |
+        # 基础构建工具
+        sudo apt-get install -y --no-install-recommends \
+          software-properties-common \
+          build-essential \
+          git zip unzip \
+          openjdk-17-jdk \
+          python3-pip python3-dev \
+          autoconf libtool pkg-config \
+          zlib1g-dev libncurses-dev \
+          cmake libffi-dev libssl-dev
+
+        # 处理libtinfo兼容性问题
+        sudo apt-get install -y libtinfo6 || \
+        (echo "Installing libtinfo5 alternative..." && \
+         wget http://archive.ubuntu.com/ubuntu/pool/main/n/ncurses/libtinfo5_6.2-0ubuntu2_amd64.deb && \
+         sudo dpkg -i libtinfo5_6.2-0ubuntu2_amd64.deb || true)
+
     - name: Set up Python 3.10
       uses: actions/setup-python@v4
       with:
         python-version: "3.10"
         cache: 'pip'
 
-    - name: Install system dependencies
-      run: |
-        sudo apt-get update -qq
-        sudo apt-get install -y software-properties-common
-        sudo add-apt-repository universe
-        sudo apt-get update -qq
-        sudo apt-get install -y \
-          git zip unzip openjdk-17-jdk \
-          python3-pip autoconf libtool \
-          pkg-config zlib1g-dev libncurses5-dev \
-          libncursesw5-dev libtinfo5 cmake \
-          libffi-dev libssl-dev
-
-    - name: Install Buildozer and dependencies
+    - name: Install Python dependencies
       run: |
         python -m pip install --upgrade pip wheel
         pip install --no-cache-dir \
@@ -50,19 +66,13 @@ jobs:
           cython==0.29.33 \
           virtualenv
 
-    - name: Build APK (Debug)
+    - name: Build APK
       run: |
-        echo "=== Starting build ==="
         buildozer android clean
         buildozer -v android debug
-        echo "=== Build complete ==="
-        
-        # Check generated APK
         ls -lh bin/
-        file bin/*.apk
 
-    - name: Upload APK artifact
-      if: success()
+    - name: Upload APK
       uses: actions/upload-artifact@v4
       with:
         name: app-debug
